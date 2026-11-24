@@ -136,7 +136,7 @@ async function sendBank(t,auto){const msg=m=>{const o=$('#bs')||$('#ge');if(o)o.
 msg('در حال ساخت فایل و ارسال به کانال تلگرام (تا ۲ دقیقه)…');
 try{const am=S.acc=='mix'?((ses&&ses.t==t&&ses.am)||newAm()):null,pk=k=>ACC[(S.acc!='mix'&&ACC[S.acc])?S.acc:((am&&am[k])||'us')][0];
 const r=(await api({a:'bank',title:t.title,tf:t.tf||'',level:t.level,track:t.track,lines:t.lines.map(l=>l[1]),sp:t.lines.map(l=>l[0]||''),fa:t.lines.map((l,i)=>fa_(t,i)),vocab:t.vocab,acc:{A:pk('A'),B:pk('B'),'0':pk(0)}},170000)).info;
-msg('✅ به کانال رفت:<code class=enl>'+esc(r.name)+'</code>')}catch(e){msg('<span class=err>'+fx(e.message)+'</span>')}}
+msg('✅ به کانال رفت:<code class=enl>'+esc(r.name)+'</code>')}catch(e){msg('<span class=err>'+fx(e.message)+'</span>'+(e.net?'<div>قبل از امتحان دوباره، کانال تلگرام را نگاه کن؛ شاید فایل رسیده باشد و فقط اتصال گوشی قطع شده باشد.</div>':''))}}
 // ---- shadowing session ----
 let ses;const NAMES=['گوش دادن','گوش و تکرار','هم‌زمان','ضبط و بازخورد'];
 function sil(){const a=$('#sil');if(!a.src){const n=8000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,s)=>[...s].forEach((c,i)=>b[o+i]=c.charCodeAt(0));w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);for(let i=44;i<b.length;i+=400)b[i]=129;a.src=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));a.loop=true;a.volume=.05}return a.play().catch(()=>{})}
