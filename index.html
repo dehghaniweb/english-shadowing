@@ -34,12 +34,14 @@ input[type=range],input[type=checkbox]{accent-color:var(--org)}
 button{transition:transform .08s,filter .15s}button:active{transform:scale(.95);filter:brightness(.92)}
 #pp{min-width:104px}#pp.on{background:#d9480f;border-color:#d9480f;color:#fff}
 .enl{display:block;direction:ltr;text-align:left;unicode-bidi:isolate}code.enl{background:var(--canl);border-radius:8px;padding:2px 8px;font-size:14px;margin:4px 0}
+.pbar{height:8px;background:rgba(0,0,0,.14);border-radius:4px;overflow:hidden;margin-top:8px}.pbar i{display:block;height:100%;background:var(--org)}
+.bt2{text-align:start}
 </style></head><body>
 <main id="m"></main><nav id="n"></nav><div id="ses" hidden></div><audio id="sil"></audio>
 <script>
 const $=s=>document.querySelector(s),fa=n=>Number(n).toLocaleString('fa-IR'),esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const K='shadowing_v1',D={tg:true,acc:'mix',days:[],lines:0,mins:0,vocab:{},done:{},theme:'auto',rate:1,voice:'',url:'',g:true,gen:[],lv:'B1',td:{d:'',sh:0,ans:0,rv:0},mist:[],pw:[],rec:[],pin:'',coach:null,cd:'',track:'ielts'};
-let S;try{S={...D,...JSON.parse(localStorage.getItem(K)||'{}')}}catch(e){S={...D}}
+const K='shadowing_v1',D={hist:[],t0:'',tg:true,acc:'off',days:[],lines:0,mins:0,vocab:{},done:{},theme:'auto',rate:1,voice:'',url:'',g:true,gen:[],lv:'A2',td:{d:'',sh:0,ans:0,rv:0},mist:[],pw:[],rec:[],pin:'',coach:null,cd:'',track:'ielts'};
+let S;try{S={...D,...JSON.parse(localStorage.getItem(K)||'{}')}}catch(e){S={...D}}S.acc='off';if(!S.days.length)S.lv='A2';
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 const day=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const td=()=>{if(S.td.d!=day())S.td={d:day(),sh:0,ans:0,rv:0};return S.td},chk=b=>b?'✅':'⬜';
@@ -60,11 +62,11 @@ function playA(u,rate){return new Promise(res=>{const a=new Audio(u);cur=a;a.pla
 function bspk(tx,rate,lang){return new Promise(res=>{const t0=Date.now(),u=new SpeechSynthesisUtterance(tx);u.lang=lang||'en-US';u.rate=rate;const vs=speechSynthesis.getVoices(),v=vs.find(v=>v.name==S.voice)||vs.find(v=>lang&&v.lang.replace('_','-')==lang);if(v)u.voice=v;const f=setTimeout(res,tx.length*130/rate+4000);u.onend=u.onerror=()=>{clearTimeout(f);if(tx.length>15&&Date.now()-t0<400&&!stm.includes('⚠'))setSt((stm?stm+' ':'')+'⚠ صدای مرورگر خروجی نداد. حجم رسانهٔ گوشی را چک کن. اگر درست بود، موتور TTS گوشی انگلیسی ندارد؛ پس باید اتصال Gemini درست شود (بیشتر ← تست صدا).');res()};speechSynthesis.speak(u)})}
 async function spk(tx,rate,sp){const ac=accOf(sp);if(S.url&&S.g&&!gBad){try{const r=await playA(await gAud(tx,sp=='B'?'Puck':'Kore',ac),rate);gFail=0;return r}catch(e){if(++gFail>=3)gBad=true;setSt('صدای Gemini برای یک جمله ساخته نشد: '+e.message+' — آن جمله با صدای مرورگر خوانده می‌شود.')}}return bspk(tx,rate,ACCX[ac][1])}
 // ---- coach + sync ----
-const snap=()=>({ts:Date.now(),days:S.days,lines:S.lines,mins:S.mins,vocab:S.vocab,done:S.done,mist:S.mist,pw:S.pw,rec:S.rec,track:S.track,lv:S.lv,due:Object.values(S.vocab).filter(v=>v.due<=day()).length});
+const snap=()=>({ts:Date.now(),days:S.days,lines:S.lines,mins:S.mins,vocab:S.vocab,done:S.done,mist:S.mist,pw:S.pw,rec:S.rec,track:S.track,lv:S.lv,n:dayNo(),hist:S.hist.slice(-14),due:Object.values(S.vocab).filter(v=>v.due<=day()).length});
 async function push(){if(!S.url)return;try{await api({a:'save',data:snap()})}catch(e){}}
 async function pull(){if(!S.url)return;try{const d=(await api({a:'load'})).data;if(d&&!S.days.length&&!Object.keys(S.vocab).length){Object.assign(S,{days:d.days||[],lines:d.lines||0,mins:d.mins||0,vocab:d.vocab||{},done:d.done||{},mist:d.mist||[],pw:d.pw||[],rec:d.rec||[],track:d.track||S.track,lv:d.lv||S.lv});save()}else push()}catch(e){}}
-async function coachGet(){const e=$('#ce');if(e)e.textContent='مربی دارد برنامه می‌چیند…';try{const r=await api({a:'coach',data:snap()});S.coach=r.plan;S.cd=day();save()}catch(x){if(e)e.textContent=x.message;return}render()}
-async function coachShadow(){const c=S.coach.shadow,e=$('#ce');e.textContent='در حال ساختن متن…';try{const o=(await api({a:'gen',track:c.track,level:c.level,topic:c.topic})).text;const t={id:'g'+Date.now(),track:c.track,title:o.t,tf:o.tf||'متن ساخته‌شده',level:c.level,lines:o.lines.map((l,i)=>[o.dlg?(i%2?'B':'A'):0,l]),fa:o.fa||[],vocab:o.vocab.map(v=>[v[0],v[1]])};S.gen.unshift(t);S.gen=S.gen.slice(0,40);const _g=S.gen[0];setTimeout(()=>{if(S.tg)sendBank(_g,true)},50);S.track=c.track;save();start(t.id)}catch(x){e.textContent=x.message}}
+async function coachGet(){const e=$('#ce');if(e)e.textContent='مربی دارد برنامه می‌چیند…';try{const r=await api({a:'coach',data:snap()});S.coach=r.plan;S.cd=day();if(r.plan.shadow&&r.plan.shadow.level)S.lv=r.plan.shadow.level;save()}catch(x){if(e)e.textContent=x.message;return}render()}
+async function coachShadow(){const c=S.coach.shadow,e=$('#ce');e.textContent='در حال ساختن متن…';try{const o=(await api({a:'gen',track:c.track,level:c.level,topic:c.topic})).text;const t={id:'g'+Date.now(),track:c.track,title:o.t,tf:o.tf||'متن ساخته‌شده',level:c.level,lines:o.lines.map((l,i)=>[o.dlg?(i%2?'B':'A'):0,l]),fa:o.fa||[],vocab:o.vocab.map(v=>[v[0],v[1]])};S.gen.unshift(t);S.gen=S.gen.slice(0,40);const _g=S.gen[0];setTimeout(()=>{if(S.tg)sendBank(_g,true)},50);S.track=c.track;S.coach.lid=t.id;save();start(t.id)}catch(x){e.textContent=x.message}}
 const coachCard=()=>{if(!S.url)return '';const c=S.cd==day()&&S.coach;if(!c)return `<div class=card><b>مربی</b><br><button class=pri onclick="coachGet()">برنامهٔ امروز از مربی</button><p class=mut id=ce></p></div>`;const m=mLab(c.talk.mode);return `<div class="card hero"><b style=font-size:18px>مربی</b><br>${fx(c.msg)}</div><div class=card>${c.focus&&c.focus.length?'<b>تمرکز امروز:</b> '+fx(c.focus.join('، '))+'<br>':''}<button class=big onclick="coachShadow()"><div>شدوینگ پیشنهادی (سطح <bdi>${esc(c.shadow.level)}</bdi>)</div><div class="en2 bt">${esc(c.shadow.topic)}</div></button><button class=big onclick="tab='talk';tStart('${m[0]}','')"><div>${m[2]}</div><div class="en2 bt">${m[1]}</div></button><p class=mut id=ce></p>${(c.grammar||[]).map(g=>`<div class=fb>${fx(g.rule)}${g.formula?`<div class=en2>${esc(g.formula)}</div>`:''}<div class=en2>${esc(g.example)}</div></div>`).join('')}</div>`};
 // ---- texts ----
 const T=[
@@ -96,7 +98,7 @@ let stm='';const setSt=t=>{stm=t;const e=$('#st');if(e){e.textContent=t;e.hidden
 const fa_=(t,i)=>(t.fa&&t.fa[i])||(FA[t.id]||[])[i]||'';
 function trT(i){const e=$('#f'+i);if(e)e.hidden=!e.hidden}
 const URLRE=/^https:\/\/script\.google\.com\/(a\/[^\/]+\/)?macros\/s\/[^\s\/]+\/exec$/;
-async function saveUrl(){const o=$('#us');S.url=$('#ui').value.trim();S.pin=$('#pin').value.trim();save();if(!URLRE.test(S.url)){o.innerHTML='<span class=err>این آدرس درست نیست. باید با https://script.google.com/macros/s/ شروع و با /exec تمام شود (همان «Web app URL» بعد از Deploy).</span>';return}o.textContent='در حال تست…';try{await api({a:'ping'});o.textContent='✅ بک‌اند وصل است و کلید Gemini پیدا شد.'}catch(e){o.innerHTML='<span class=err>'+fx(e.message)+'</span>'}}
+async function saveUrl(){const o=$('#us');S.url=$('#ui').value.trim();save();if(!URLRE.test(S.url)){o.innerHTML='<span class=err>این آدرس درست نیست. باید با https://script.google.com/macros/s/ شروع و با /exec تمام شود (همان «Web app URL» بعد از Deploy).</span>';return}o.textContent='در حال تست…';try{await api({a:'ping'});o.textContent='✅ بک‌اند وصل است و کلید Gemini پیدا شد.'}catch(e){o.innerHTML='<span class=err>'+fx(e.message)+'</span>'}}
 async function tB(){const o=$('#us2'),t=Date.now();o.textContent='گوش بده…';await bspk('Hello, this is a sound test.',1);o.textContent=Date.now()-t<500?'❌ صدای مرورگر خروجی نداد. حجم رسانهٔ گوشی را چک کن؛ اگر درست بود، موتور TTS گوشی انگلیسی ندارد.':'✅ صدای مرورگر پخش شد (اگر نشنیدی، حجم رسانه را بالا ببر).'}
 async function tG(){const o=$('#us2');o.textContent='در حال ساخت صدا (چند ثانیه)…';try{await playA(await gAud('Hello, this is a sound test.','Kore'),1);o.textContent='✅ صدای Gemini ساخته و پخش شد (اگر نشنیدی، حجم رسانه را بالا ببر).'}catch(e){o.innerHTML='<span class=err>'+fx(e.message)+'</span>'}}
 const TOP_I=[['Hometown','شهر من'],['Work or study','کار یا تحصیل'],['Family and friends','خانواده و دوستان'],['Food and cooking','غذا و آشپزی'],['Travel','سفر'],['Technology','فناوری'],['Weather and seasons','آب‌وهوا و فصل‌ها'],['Health and exercise','سلامت و ورزش'],['Free time and hobbies','اوقات فراغت'],['Environment','محیط زیست'],['Education','آموزش'],['Shopping and money','خرید و پول']];
@@ -106,14 +108,14 @@ const tfo=t=>t.tf||'متن ساخته‌شده';
 const chips=(L,fn)=>'<div class=topics>'+L.map((t,i)=>`<button onclick="${fn}(${i})"><div class=en2>${t[0]}</div><small>${t[1]}</small></button>`).join('')+'</div>';
 function pickT(i){const L=S.track=='tech'?TOP_T:TOP_I;$('#gt').value=L[i][0]}
 // ---- views ----
-let tab='home';const tabs=[['home','خانه'],['lib','کتابخانه'],['talk','گفتگو'],['rev','مرور'],['more','بیشتر']];
+let tab='home';const tabs=[['home','امروز'],['talk','گفتگو'],['more','بیشتر']];
 const due=()=>Object.entries(S.vocab).filter(([k,v])=>v.due<=day());
 const V={
 home:()=>`<h1>تمرین امروز</h1>${coachCard()}${gap()>=3?'<p class=note>خوش برگشتی! امروز فقط یک متن کوتاه کافی است. شمارش روزهای تمرینت حفظ شده است.</p>':''}<div class="card hero"><b>${streak()}</b> روز پشت‌سرهم<br><small>کل روزهای تمرین: ${fa(S.days.length)}</small></div><div class="card plan"><b>برنامهٔ امروز</b> <small>(حدود ۳۰ دقیقه)</small><br>${chk(td().sh>=1)} یک متن شدوینگ (${fa(td().sh)} از ۱)<br>${chk(td().ans>=5)} ۵ جواب در گفتگوی زنده (${fa(td().ans)} از ۵)<br>${chk(!due().length||td().rv>=5)} مرور لغت‌ها (${fa(due().length)} کارت مانده)</div>${sw()}<button class="big pri" onclick="start('${next().id}')">شروع تمرین امروز</button><p class=mut>${tfo(next())}<br><span class=en2>${esc(next().title)}</span></p>`,
 lib:()=>`<h1>کتابخانه</h1>${sw()}<div class=card><b>ساخت متن جدید</b> <select onchange="S.lv=this.value;save()">${['A2','B1','B2','C1'].map(l=>`<option ${S.lv==l?'selected':''}>${l}</option>`).join('')}</select><p class=mut style="margin:6px 0">یک موضوع انتخاب کن یا خودت بنویس:</p>${chips(S.track=='tech'?TOP_T:TOP_I,'pickT')}<input id=gt placeholder="موضوع انتخاب‌شده" style=direction:ltr><button class=pri id=gb onclick="genT()">بساز</button><p class=err id=ge></p></div>${texts().map(t=>`<div class=card onclick="start('${t.id}')"><b>${tfo(t)}</b><div class=en2>${esc(t.title)}</div><small>سطح <bdi>${t.level}</bdi> · ${fa(t.lines.length)} خط · ${fa(S.done[t.id]||0)} بار تمرین</small></div>`).join('')}`,
 talk:()=>{if(!S.url)return '<h1>گفتگوی زنده</h1><p class=note>برای گفتگو با Gemini، آدرس Apps Script را در بخش «بیشتر» وارد کن.</p>';
 if(tk.pick)return `<h1>موضوع را انتخاب کن</h1><p class=mut>${mLab(tk.pick)[2]}</p>${chips(tk.pick=='site'?TOP_T:TOP_I,'tStartI')}<button class="big pri" onclick="tStartI(-1)">موضوع تصادفی</button><button onclick="tk.pick='';render()">برگشت</button>`;
-if(!tk.mode)return `<h1>گفتگوی زنده</h1><p class=mut>او سؤال می‌پرسد، تو با صدا جواب می‌دهی و در پایان غلط‌هایت را می‌گوید.</p>${MODES.map(m=>`<button class=big onclick="tPick('${m[0]}')"><div>${m[2]}</div><div class="en2 bt">${m[1]}</div></button>`).join('')}`;
+if(!tk.mode)return `<h1>گفتگوی زنده</h1><p class=mut>او سؤال می‌پرسد، تو با صدا جواب می‌دهی و در پایان غلط‌هایت را می‌گوید.</p>${MODES.map(m=>`<button class=big onclick="tStart('${m[0]}','')"><div>${m[2]}</div><div class="en2 bt">${m[1]}</div></button>`).join('')}`;
 if(tk.fb)return `<h1>بازخورد</h1><div class=card>${fx(tk.fb.summary)}</div>${tk.fb.items.map(i=>`<div class=fb><div class="en bad">${esc(i.said)}</div><div class=en><b>${esc(i.better)}</b></div><div>${fx(i.why)}</div></div>`).join('')}<button class="big pri" onclick="tk.mode='';tk.fb=null;render()">گفتگوی تازه</button>`;
 const long=tk.mode=='sp2';
 return `<h1>${mLab(tk.mode)[2]}</h1>${tk.topic?`<p class=en2>${esc(tk.topic)}</p>`:''}${tk.busy?'<p class=mut>در حال فکرکردن…</p>':`<div class=card><div class=en>${esc(tk.q)}</div><button onclick="tSay()">پخش دوباره</button></div><button class="mic pri ${tk.lis?'on':''}" onclick="tMic()">${tk.lis?(long?'تمام شد':'گوش می‌دهم'):'جواب بده'}</button>${tk.lis&&long?'<div class=en id=lv></div>':''}<input id=ti placeholder="یا جواب را تایپ کن" style=direction:ltr onkeydown="if(event.key=='Enter')tSend(this.value)"><button onclick="tSend($('#ti').value)">ارسال</button>`}${tk.err?`<p class=err>${fx(tk.err)}</p><button onclick="tAsk()">تلاش دوباره</button>`:''}${tk.h.length?`<button class=big onclick="tFb()">پایان و بازخورد (${fa(tk.h.length)} جواب)</button>`:''}${tk.h.map(x=>`<div class=card><small class=en>${esc(x.q)}</small><div class=en><b>${esc(x.a)}</b></div></div>`).join('')}`},
@@ -129,8 +131,8 @@ const IC={home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',lib:'<path d="M
 const svg=(p,z=22)=>`<svg width="${z}" height="${z}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 const ACC={us:['American','en-US','آمریکایی'],uk:['British','en-GB','بریتانیایی'],au:['Australian','en-AU','استرالیایی'],ca:['Canadian','en-CA','کانادایی'],in:['Indian','en-IN','هندی']},AK=Object.keys(ACC);const ACCX={...ACC,off:['','en-US','بدون لهجهٔ خاص (ساده)']};
 const newAm=()=>{const k=[...AK].sort(()=>Math.random()-.5);return{0:k[0],A:k[0],B:k[1]}};
-const accOf=sp=>S.acc!='mix'&&ACCX[S.acc]?S.acc:((ses&&ses.am&&ses.am[sp||0])||'us');
-const ta=()=>S.acc!='mix'&&ACCX[S.acc]?S.acc:(tk.acc||(tk.acc=AK[Math.floor(Math.random()*AK.length)]));
+const accOf=()=>'off';
+const ta=()=>'off';
 function setAcc(v){S.acc=v;save();if(ses)ses.am=newAm()}
 const accOpts=()=>`<option value=mix ${S.acc=='mix'?'selected':''}>ترکیبی (هر بار متفاوت)</option><option value=off ${S.acc=='off'?'selected':''}>بدون لهجهٔ خاص (ساده)</option>`+AK.map(k=>`<option value=${k} ${S.acc==k?'selected':''}>${ACCX[k][2]}</option>`).join('');
 async function tA(){const o=$('#us3'),a=S.acc=='mix'?'uk':S.acc;o.textContent='در حال ساخت صدا…';try{await playA(await gAud('Good morning. Let me introduce myself.','Kore',a),1);o.textContent='✅ پخش شد. اگر لهجه فرقی نداشت، به من بگو.'}catch(e){o.innerHTML='<span class=err>'+fx(e.message)+'</span>'}}
@@ -189,7 +191,7 @@ if(!ks.length){o.textContent='هنوز صدایی ضبط نشده است. اول
 if(!S.url){o.textContent='برای خطایابی، آدرس بک‌اند را در «بیشتر» وارد کن.';return}
 o.textContent='در حال گوش‌دادن به صدای تو (چند ثانیه)…';
 try{const items=[];for(const i of ks)items.push({n:i+1,text:ses.t.lines[i][1],audio:await b64(await toWav(ses.rb[i]))});
-const f=(await api({a:'pron2',items},120000)).fb;f.items.forEach(it=>(it.words||[]).forEach(x=>S.pw.push({w:x.w,d:day()})));S.pw=S.pw.slice(-40);markDay(0);save();push();
+const f=(await api({a:'pron2',items},120000)).fb;f.items.forEach(it=>(it.words||[]).forEach(x=>S.pw.push({w:x.w,d:day()})));S.pw=S.pw.slice(-40);S.hist.push({d:day(),ok:f.items.filter(x=>x.ok).length,n:f.items.length});S.hist=S.hist.slice(-60);markDay(0);save();push();
 o.innerHTML='<div class=card dir=auto>'+fx(f.summary)+'</div>'+f.items.map(it=>{const t=(ses.t.lines[it.n-1]||[])[1]||'';return '<div class=fb><span class=enl>'+(it.ok?'✅ ':'⚠️ ')+esc(t)+'</span>'+(it.words||[]).map(x=>'<div class=enl><b>'+esc(x.w)+'</b></div><div dir=auto>'+fx(x.tip)+'</div>').join('')+'</div>'}).join('')}catch(e){o.innerHTML='<span class=err>'+fx(e.message)+'</span>'}}
 function turnOff(){const b=$('#turn');if(b)b.hidden=true}
 function start(id){gBad=false;gFail=0;stm=S.url?'':'برای صدای طبیعی Gemini، آدرس Apps Script را در بخش «بیشتر» وارد کن؛ فعلاً صدای مرورگر پخش می‌شود.';ses={tr:false,t:allT().find(t=>t.id==id),step:2,role:'',slow:false,am:newAm(),rate:S.rate,rep:1,loop:false,auto:true,tok:0,rc:{},rb:{},tid:0,t0:Date.now()};sesUI();sync()}
@@ -213,5 +215,30 @@ async function toWav(blob){const ac=new (window.AudioContext||window.webkitAudio
 async function pron(){const o=$('#pr');o.textContent='در حال گوش‌دادن…';try{const w=await toWav(new Blob(ch,{type:rec.mimeType})),a=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(w)}),f=(await api({a:'pron',audio:a,text:ses.t.lines.filter(l=>!ses.role||l[0]==ses.role).map(l=>l[1]).join(' ')})).fb;o.innerHTML=`<p>${fx(f.summary)}</p>`+f.words.map(x=>`<div class=fb><b class=en>${esc(x.w)}</b><div>${fx(x.tip)}</div></div>`).join('');f.words.forEach(x=>S.pw.push({w:x.w,d:day()}));S.pw=S.pw.slice(-40);markDay(0);push()}catch(e){o.innerHTML=`<span class=err>${esc(e.message)}</span>`}}
 function closeS(){stopAll();$('#ses').hidden=true;sync()}
 function finish(){stopAll();markDay(Math.max(1,Math.round((Date.now()-ses.t0)/6e4)));S.done[ses.t.id]=(S.done[ses.t.id]||0)+1;td().sh++;S.rec.push(ses.t.title);S.rec=S.rec.slice(-20);const d=day();ses.t.vocab.forEach(([e,f])=>{if(!S.vocab[e])S.vocab[e]={fa:f,box:0,due:d}});save();push();$('#ses').hidden=true;tab='home';render()}
+// ---- ساده‌سازی: امروز / گفتگو / بیشتر ----
+function dayNo(){if(!S.t0){S.t0=day();save()}return Math.max(1,Math.floor((new Date(day())-new Date(S.t0))/864e5)+1)}
+function todayLesson(){if(navigator.vibrate)navigator.vibrate(15);const c=S.url&&S.coach&&S.cd==day()?S.coach:null;if(c&&c.lid&&allT().find(t=>t.id==c.lid))return start(c.lid);if(c)return coachShadow();start(next().id)}
+function todayTalk(){if(navigator.vibrate)navigator.vibrate(15);if(!S.url){tab='more';return render()}const c=S.coach&&S.cd==day()?S.coach:null;tab='talk';tStart(c&&c.talk&&c.talk.mode?c.talk.mode:'sp1','')}
+V.home=()=>{const c=S.url&&S.cd==day()&&S.coach,dn=dayNo();
+return `<h1>امروز</h1><div class="card hero"><b>روز ${fa(dn)}</b> از ۹۰<div><small>زنجیرهٔ تمرین: ${fa(streak())} روز</small></div><div class=pbar><i style="width:${Math.min(100,Math.round(dn/90*100))}%"></i></div></div>`
++(S.url?'':'<p class=note>برای شروع، آدرس بک‌اند را در «بیشتر» وارد کن.</p>')
++(c?`<div class=card dir=auto>${fx(c.msg)}${c.focus&&c.focus.length?'<br><small>تمرکز: '+fx(c.focus.join('، '))+'</small>':''}</div>`:(S.url?'<div class=card>مربی دارد برنامهٔ امروز را می‌چیند… <button onclick="coachGet()">دوباره</button></div>':''))
++`<button class="big pri" onclick="todayLesson()"><span>${chk(td().sh>=1)} درس امروز</span><span class=enl>${esc(c?c.shadow.topic:next().title)}</span></button>`
++`<button class=big onclick="todayTalk()"><span>${chk(td().ans>=5)} گفتگوی امروز</span><small>${fa(td().ans)} از ۵ جواب</small></button><p id=ce class=mut></p>`};
+V.more=()=>`<h1>بیشتر</h1><div class=card>روزهای تمرین: <b>${fa(S.days.length)}</b> · زنجیره: <b>${fa(streak())}</b><br>جمله‌های تکرارشده: <b>${fa(S.lines)}</b> · دقیقه: <b>${fa(S.mins)}</b></div>
+<h2>درس‌ها</h2>${allT().map(t=>`<div class=card onclick="start('${t.id}')"><span class=enl><b>${esc(t.title)}</b></span><div dir=auto>${tfo(t)}</div></div>`).join('')}
+<h2>تنظیمات</h2><div class=card><div>آدرس بک‌اند را اینجا بگذار:</div><input id=ui style=direction:ltr value="${esc(S.url)}"><button class=pri onclick="saveUrl()">ذخیره و تست</button><p id=us></p><label><input type=checkbox ${S.tg?'checked':''} onchange="S.tg=this.checked;save()"> هر درس خودکار به تلگرام برود</label></div>
+<div class=card><b>رنگ اپ</b><div class=chips><button class="${S.theme!='can'?'on':''}" onclick="S.theme='pis';save();theme();render()"><span class=dot style="background:#a6d36a"></span>پسته‌ای</button><button class="${S.theme=='can'?'on':''}" onclick="S.theme='can';save();theme();render()"><span class=dot style="background:#ffe25a"></span>قناری</button></div></div>`;
+function startPlay(st){if(navigator.vibrate)navigator.vibrate(15);ses.step=st;play()}
+function syncPP(){const b=$('#ctl');if(!b||!ses)return;b.innerHTML=ses.playing?'<button id=pp class="pri on" onclick="stopAll()">توقف</button>':'<button id=pp class=pri onclick="startPlay(2)">گوش و تکرار</button><button onclick="startPlay(3)">فقط گوش دادن</button>'}
+function sesUI(){const s=ses;$('#ses').hidden=false;$('#ses').innerHTML=`<div><button class=bk onclick="goBack()">${svg('<path d="M9 6l6 6-6 6"/>',20)}<span>بازگشت</span></button>
+<span class=enl><b>${esc(s.t.title)}</b></span><div dir=auto>${tfo(s.t)}</div>
+<div class=card><div id=ctl></div><label><input type=checkbox ${s.rate<1?'checked':''} onchange="ses.rate=this.checked?.8:1"> آهسته</label></div>
+<p id=st class=note ${stm?'':'hidden'}>${esc(stm)}</p>
+<div id=turn class=turn hidden><span id=rdot class=rdot hidden></span>${svg(IC.talk,20)}<b id=tt>حالا تو بگو</b><button onclick="ses.sk&&ses.sk()">رد شو</button><div id=lvlw class=lvl hidden><i id=lvl></i></div><div class=bar><i id=tbar></i></div></div>
+<small class=mut>روی جمله بزن تا ترجمه بیاید.</small>
+${s.t.lines.map((l,i)=>`<div onclick="trT(${i})"><p class=ln id=l${i}>${l[0]?`<b>${l[0]}:</b> `:''}${l[1]} <button class=lp onclick="event.stopPropagation();one(${i})">${svg('<path d="M7 4l13 8-13 8z" fill="currentColor"/>',12)}</button><button class=lp id=m${i} ${s.rc&&s.rc[i]?'':'hidden'} onclick="event.stopPropagation();mine(${i})">${svg(IC.talk,12)} صدای من</button></p><div class=tr id=f${i} hidden>${esc(fa_(s.t,i)||'ترجمه برای این متن ذخیره نشده.')}</div></div>`).join('')}
+<div id=fbr></div><button onclick="fbAll()">خطایابی تلفظ من</button><button onclick="sendBank(ses.t)">ارسال درس به تلگرام</button><p id=bs class=mut></p><button class="big pri" onclick="finish()">پایان درس</button></div>`;syncPP()}
+
 theme();speechSynthesis.onvoiceschanged=()=>{if(tab=='more')render()};render();pull().then(()=>{if(S.url&&S.cd!=day())coachGet()});
 </script></body></html>
