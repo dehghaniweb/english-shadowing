@@ -29,6 +29,11 @@ nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-si
 .rdot{width:14px;height:14px;border-radius:50%;background:#d32f2f;animation:rp 1s infinite}@keyframes rp{50%{opacity:.25}}
 .lvl{flex:1 1 100%;height:8px;background:rgba(0,0,0,.14);border-radius:4px;overflow:hidden}.lvl i{display:block;height:100%;width:0;background:#d32f2f;transition:width .08s}
 .dot{display:inline-block;width:14px;height:14px;border-radius:50%;margin-inline-end:6px;vertical-align:middle}
+[hidden]{display:none!important}
+input[type=range],input[type=checkbox]{accent-color:var(--org)}
+button{transition:transform .08s,filter .15s}button:active{transform:scale(.95);filter:brightness(.92)}
+#pp{min-width:104px}#pp.on{background:#d9480f;border-color:#d9480f;color:#fff}
+.enl{display:block;direction:ltr;text-align:left;unicode-bidi:isolate}code.enl{background:var(--canl);border-radius:8px;padding:2px 8px;font-size:14px;margin:4px 0}
 </style></head><body>
 <main id="m"></main><nav id="n"></nav><div id="ses" hidden></div><audio id="sil"></audio>
 <script>
@@ -49,11 +54,11 @@ const idb=new Promise(r=>{try{const q=indexedDB.open('sh',1);q.onupgradeneeded=(
 const idbG=async k=>{const d=await idb;return d?new Promise(r=>{const q=d.transaction('a').objectStore('a').get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r()}):null};
 const idbS=async(k,v)=>{const d=await idb;if(d)try{d.transaction('a','readwrite').objectStore('a').put(v,k)}catch(e){}};
 const pm=new Map();
-function gAud(tx,vo,ac){const k=vo+'|'+(ac||'')+'|'+tx;if(!pm.has(k))pm.set(k,(async()=>{let b=await idbG(k);if(!b){b=(await api({a:'tts',text:tx,voice:vo,accent:ac?ACC[ac][0]:''})).audio;idbS(k,b)}const u=atob(b),a=new Uint8Array(u.length);for(let i=0;i<u.length;i++)a[i]=u.charCodeAt(i);return URL.createObjectURL(new Blob([a],{type:'audio/wav'}))})().catch(e=>{pm.delete(k);throw e}));return pm.get(k)}
-let cur=null,gBad=false;const wait=ms=>new Promise(r=>setTimeout(r,ms));
+function gAud(tx,vo,ac){const k=vo+'|'+(ac||'')+'|'+tx;if(!pm.has(k))pm.set(k,(async()=>{let b=await idbG(k);if(!b){b=await ttsRetry(tx,vo,ac);idbS(k,b)}const u=atob(b),a=new Uint8Array(u.length);for(let i=0;i<u.length;i++)a[i]=u.charCodeAt(i);return URL.createObjectURL(new Blob([a],{type:'audio/wav'}))})().catch(e=>{pm.delete(k);throw e}));return pm.get(k)}
+let cur=null,gBad=false,gFail=0;const wait=ms=>new Promise(r=>setTimeout(r,ms));
 function playA(u,rate){return new Promise(res=>{const a=new Audio(u);cur=a;a.playbackRate=rate;a.onended=a.onerror=a.onpause=()=>res();a.play().catch(res)})}
 function bspk(tx,rate,lang){return new Promise(res=>{const t0=Date.now(),u=new SpeechSynthesisUtterance(tx);u.lang=lang||'en-US';u.rate=rate;const vs=speechSynthesis.getVoices(),v=vs.find(v=>v.name==S.voice)||vs.find(v=>lang&&v.lang.replace('_','-')==lang);if(v)u.voice=v;const f=setTimeout(res,tx.length*130/rate+4000);u.onend=u.onerror=()=>{clearTimeout(f);if(tx.length>15&&Date.now()-t0<400&&!stm.includes('⚠'))setSt((stm?stm+' ':'')+'⚠ صدای مرورگر خروجی نداد. حجم رسانهٔ گوشی را چک کن. اگر درست بود، موتور TTS گوشی انگلیسی ندارد؛ پس باید اتصال Gemini درست شود (بیشتر ← تست صدا).');res()};speechSynthesis.speak(u)})}
-async function spk(tx,rate,sp){const ac=accOf(sp);if(S.url&&S.g&&!gBad){try{return await playA(await gAud(tx,sp=='B'?'Puck':'Kore',ac),rate)}catch(e){gBad=true;setSt('صدای Gemini کار نکرد: '+e.message+' — فعلاً با صدای مرورگر ادامه می‌دهم.')}}return bspk(tx,rate,ACC[ac][1])}
+async function spk(tx,rate,sp){const ac=accOf(sp);if(S.url&&S.g&&!gBad){try{const r=await playA(await gAud(tx,sp=='B'?'Puck':'Kore',ac),rate);gFail=0;return r}catch(e){if(++gFail>=3)gBad=true;setSt('صدای Gemini برای یک جمله ساخته نشد: '+e.message+' — آن جمله با صدای مرورگر خوانده می‌شود.')}}return bspk(tx,rate,ACCX[ac][1])}
 // ---- coach + sync ----
 const snap=()=>({ts:Date.now(),days:S.days,lines:S.lines,mins:S.mins,vocab:S.vocab,done:S.done,mist:S.mist,pw:S.pw,rec:S.rec,track:S.track,lv:S.lv,due:Object.values(S.vocab).filter(v=>v.due<=day()).length});
 async function push(){if(!S.url)return;try{await api({a:'save',data:snap()})}catch(e){}}
@@ -78,7 +83,7 @@ const sw=()=>`<div class=chips><button class="${S.track=='ielts'?'on':''}" oncli
 const MODES=[['sp1','IELTS Speaking Part 1','آیلتس، پارت ۱: سؤال و جواب کوتاه'],['sp2','IELTS Speaking Part 2','آیلتس، پارت ۲: صحبت بلند با کارت موضوع'],['sp3','IELTS Speaking Part 3','آیلتس، پارت ۳: بحث و ابراز نظر'],['job','Engineering job interview','مصاحبهٔ شغلی مهندسی'],['site','Plant room conversation','گفتگوی کاری در موتورخانه']];
 const mLab=m=>MODES.find(x=>x[0]==m)||MODES[0];
 let tk={mode:'',h:[],q:'',busy:false,fb:null,lis:false,err:''};
-async function tSay(){if(!tk.q)return;const ac=ta();if(S.url&&S.g){try{return await playA(await gAud(tk.q,'Kore',ac),1)}catch(e){}}bspk(tk.q,1,ACC[ac][1])}
+async function tSay(){if(!tk.q)return;const ac=ta();if(S.url&&S.g){try{return await playA(await gAud(tk.q,'Kore',ac),1)}catch(e){}}bspk(tk.q,1,ACCX[ac][1])}
 async function tAsk(){tk.busy=true;tk.err='';render();try{tk.q=(await api({a:'chat',mode:tk.mode,topic:tk.topic,h:tk.h})).q}catch(e){tk.err=e.message}tk.busy=false;render();tSay()}
 function tStart(m,topic){tk={mode:m,topic:topic||'',h:[],q:'',busy:false,fb:null,lis:false,err:'',t0:Date.now(),pick:''};tAsk()}
 function tPick(m){if(m=='job')return tStart(m,'');tk={...tk,pick:m};render()}
@@ -122,12 +127,12 @@ function render(){$('#n').innerHTML=tabs.map(t=>`<button class="${t[0]==tab?'on'
 function grade(k,ok){const v=S.vocab[k],I=[1,1,3,7,16,35];v.box=ok?Math.min(v.box+1,5):0;v.due=addDays(I[v.box]);td().rv++;save();render()}
 const IC={home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',lib:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19a2 2 0 0 1 2-2h13"/>',talk:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',rev:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M7 3h10"/>',more:'<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>'};
 const svg=(p,z=22)=>`<svg width="${z}" height="${z}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
-const ACC={us:['American','en-US','آمریکایی'],uk:['British','en-GB','بریتانیایی'],au:['Australian','en-AU','استرالیایی'],ca:['Canadian','en-CA','کانادایی'],in:['Indian','en-IN','هندی']},AK=Object.keys(ACC);
+const ACC={us:['American','en-US','آمریکایی'],uk:['British','en-GB','بریتانیایی'],au:['Australian','en-AU','استرالیایی'],ca:['Canadian','en-CA','کانادایی'],in:['Indian','en-IN','هندی']},AK=Object.keys(ACC);const ACCX={...ACC,off:['','en-US','بدون لهجهٔ خاص (ساده)']};
 const newAm=()=>{const k=[...AK].sort(()=>Math.random()-.5);return{0:k[0],A:k[0],B:k[1]}};
-const accOf=sp=>S.acc!='mix'&&ACC[S.acc]?S.acc:((ses&&ses.am&&ses.am[sp||0])||'us');
-const ta=()=>S.acc!='mix'&&ACC[S.acc]?S.acc:(tk.acc||(tk.acc=AK[Math.floor(Math.random()*AK.length)]));
+const accOf=sp=>S.acc!='mix'&&ACCX[S.acc]?S.acc:((ses&&ses.am&&ses.am[sp||0])||'us');
+const ta=()=>S.acc!='mix'&&ACCX[S.acc]?S.acc:(tk.acc||(tk.acc=AK[Math.floor(Math.random()*AK.length)]));
 function setAcc(v){S.acc=v;save();if(ses)ses.am=newAm()}
-const accOpts=()=>`<option value=mix ${S.acc=='mix'?'selected':''}>ترکیبی (هر بار متفاوت)</option>`+AK.map(k=>`<option value=${k} ${S.acc==k?'selected':''}>${ACC[k][2]}</option>`).join('');
+const accOpts=()=>`<option value=mix ${S.acc=='mix'?'selected':''}>ترکیبی (هر بار متفاوت)</option><option value=off ${S.acc=='off'?'selected':''}>بدون لهجهٔ خاص (ساده)</option>`+AK.map(k=>`<option value=${k} ${S.acc==k?'selected':''}>${ACCX[k][2]}</option>`).join('');
 async function tA(){const o=$('#us3'),a=S.acc=='mix'?'uk':S.acc;o.textContent='در حال ساخت صدا…';try{await playA(await gAud('Good morning. Let me introduce myself.','Kore',a),1);o.textContent='✅ پخش شد. اگر لهجه فرقی نداشت، به من بگو.'}catch(e){o.innerHTML='<span class=err>'+fx(e.message)+'</span>'}}
 let depth=0,quiet=0;
 const lv=()=>($('#ses').hidden?0:1)+(tab=='home'?0:1)+(tab=='talk'?(tk.pick?1:0)+(tk.mode?1:0)+(tk.fb?1:0):0);
@@ -135,19 +140,26 @@ function sync(){const n=lv();while(depth<n){history.pushState(null,'');depth++}i
 function back(){if(!$('#ses').hidden){closeS();return}if(tab=='talk'){if(tk.fb){tk.fb=null;render();return}if(tk.mode){stopAll();try{tk.stop=true;if(tk.rec)tk.rec.stop()}catch(e){}tk={mode:'',h:[],q:'',busy:false,fb:null,lis:false,err:'',stop:true,acc:''};render();return}if(tk.pick){tk.pick='';render();return}}if(tab!='home'){tab='home';render()}}
 const goBack=()=>{if(depth>0)history.back();else back()};
 addEventListener('popstate',()=>{if(quiet){quiet--;return}depth=Math.max(0,depth-1);back();sync()});
+async function ttsRetry(tx,vo,ac){let er;for(let n=0;n<3;n++){try{return (await api({a:'tts',text:tx,voice:vo,accent:ac?ACCX[ac][0]:''})).audio}catch(e){er=e;await wait(1500*(n+1))}}throw er}
+async function gB64(tx,vo,ac){const k=vo+'|'+(ac||'')+'|'+tx;let b=await idbG(k);if(!b){b=await ttsRetry(tx,vo,ac);idbS(k,b)}return b}
 async function sendBank(t,auto){const msg=m=>{const o=$('#bs')||$('#ge');if(o)o.innerHTML=m;else if(!auto)setSt(m)};
-msg('در حال ساخت فایل و ارسال به کانال تلگرام (تا ۲ دقیقه)…');
-try{const am=S.acc=='mix'?((ses&&ses.t==t&&ses.am)||newAm()):null,pk=k=>ACC[(S.acc!='mix'&&ACC[S.acc])?S.acc:((am&&am[k])||'us')][0];
-const r=(await api({a:'bank',title:t.title,tf:t.tf||'',level:t.level,track:t.track,lines:t.lines.map(l=>l[1]),sp:t.lines.map(l=>l[0]||''),fa:t.lines.map((l,i)=>fa_(t,i)),vocab:t.vocab,acc:{A:pk('A'),B:pk('B'),'0':pk(0)}},170000)).info;
-msg('✅ به کانال رفت:<code class=enl>'+esc(r.name)+'</code>')}catch(e){msg('<span class=err>'+fx(e.message)+'</span>'+(e.net?'<div>قبل از امتحان دوباره، کانال تلگرام را نگاه کن؛ شاید فایل رسیده باشد و فقط اتصال گوشی قطع شده باشد.</div>':''))}}
+try{const am=S.acc=='mix'?((ses&&ses.t==t&&ses.am)||newAm()):null,ak=k=>(S.acc!='mix'&&ACCX[S.acc])?S.acc:((am&&am[k])||'us'),pk=k=>ACCX[ak(k)][0];
+const L=[],miss=[];
+for(let i=0;i<t.lines.length;i++){msg('در حال ساخت صدا: جملهٔ '+fa(i+1)+' از '+fa(t.lines.length)+'…');const sp=t.lines[i][0]||'';let a='';
+try{a=await gB64(t.lines[i][1],sp==='B'?'Puck':'Kore',ak(sp||'0'))}catch(e){miss.push(i+1)}
+L.push({s:sp,e:t.lines[i][1],f:fa_(t,i),a:a})}
+if(miss.length){msg('<span class=err>صدای جملهٔ '+miss.map(x=>fa(x)).join('، ')+' ساخته نشد. چند دقیقه بعد دوباره بزن؛ فایل ارسال نشد.</span>');return}
+msg('در حال فرستادن فایل به کانال تلگرام…');
+const r=(await api({a:'bankSend',title:t.title,tf:t.tf||'',level:t.level,track:t.track,lines:L,vocab:t.vocab,acc:{A:pk('A'),B:pk('B'),'0':pk(0)}},120000)).info;
+msg('✅ به کانال رفت:<code class=enl>'+esc(r.name)+'</code>')}catch(e){msg('<span class=err>'+fx(e.message)+'</span>'+(e.net?'<div>قبل از امتحان دوباره، کانال تلگرام را نگاه کن؛ شاید فایل رسیده باشد.</div>':''))}}
 // ---- shadowing session ----
 let ses;const NAMES=['گوش دادن','گوش و تکرار','هم‌زمان','ضبط و بازخورد'];
 function sil(){const a=$('#sil');if(!a.src){const n=8000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,s)=>[...s].forEach((c,i)=>b[o+i]=c.charCodeAt(0));w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);for(let i=44;i<b.length;i+=400)b[i]=129;a.src=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));a.loop=true;a.volume=.05}return a.play().catch(()=>{})}
 function ms(){if(!('mediaSession' in navigator))return;try{navigator.mediaSession.metadata=new MediaMetadata({title:ses.t.title,artist:'Shadowing'});['pause','stop'].forEach(a=>navigator.mediaSession.setActionHandler(a,stopAll));navigator.mediaSession.setActionHandler('play',play)}catch(e){}}
-function stopAll(){turnOff();if(ses){ses.tok++;if(ses.sk)ses.sk()}speechSynthesis.cancel();if(cur)cur.pause();$('#sil').pause();if(ses&&ses.nx)ses.nx()}
+function stopAll(){turnOff();if(ses){ses.tok++;ses.playing=false;if(ses.sk)ses.sk()}syncPP();speechSynthesis.cancel();if(cur)cur.pause();$('#sil').pause();if(ses&&ses.nx)ses.nx()}
 const mark=i=>{document.querySelectorAll('.ln').forEach((e,j)=>e.classList.toggle('cur',i==j));const e=$('#l'+i);if(e)e.scrollIntoView({block:'center',behavior:'smooth'})};
-async function play(){stopAll();const tok=++ses.tok,L=ses.t.lines;await sil();ms();
-if(S.url&&S.g&&!gBad)(async()=>{for(const[sp,tx]of L){try{await gAud(tx,sp=='B'?'Puck':'Kore',accOf(sp))}catch(e){return}}})();
+async function play(){stopAll();const tok=++ses.tok,L=ses.t.lines;ses.playing=true;syncPP();await sil();ms();
+if(S.url&&S.g&&!gBad)(async()=>{for(const[sp,tx]of L){try{await gAud(tx,sp=='B'?'Puck':'Kore',accOf(sp))}catch(e){}}})();
 do{for(let i=0;i<L.length;i++){if(tok!==ses.tok)return;const[sp,tx]=L[i];mark(i);
 if(ses.step==3&&ses.role&&sp==ses.role){await wait(Math.max(2500,tx.length*90));continue}
 const reps=ses.step==2?ses.rep:1;
@@ -156,7 +168,7 @@ if(ses.step==2&&ses.slow){await spk(tx,ses.rate*.7,sp);if(tok!==ses.tok)return;a
 const t0=Date.now();await spk(tx,ses.rate,sp);const el=Date.now()-t0;if(tok!==ses.tok)return;if(ses.step==2||ses.step==3)S.lines++;
 if(ses.step==2)await turn(Math.max(2200,el*1.4+900),tok,i);else await wait(ses.step==3?400:600)}
 if(ses.step==2&&!ses.auto&&i<L.length-1){await new Promise(r=>ses.nx=r);ses.nx=null}}
-}while(ses.loop&&tok===ses.tok);if(tok===ses.tok){mark(-1);turnOff();$('#sil').pause()}}
+}while(ses.loop&&tok===ses.tok);if(tok===ses.tok){mark(-1);turnOff();$('#sil').pause();ses.playing=false;syncPP();if(ses.step==2&&Object.keys(ses.rb).length&&S.url)fbAll()}}
 async function one(i){stopAll();const tok=++ses.tok,[sp,tx]=ses.t.lines[i];mark(i);await spk(tx,ses.rate,sp)}
 async function micOpen(){try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});const ch=[];let rec=null,ac,iv;try{rec=new MediaRecorder(st);rec.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};rec.start()}catch(e){}
 try{ac=new (window.AudioContext||window.webkitAudioContext)();const an=ac.createAnalyser();an.fftSize=256;ac.createMediaStreamSource(st).connect(an);const buf=new Uint8Array(an.fftSize);iv=setInterval(()=>{an.getByteTimeDomainData(buf);let m=0;for(let k=0;k<buf.length;k++)m=Math.max(m,Math.abs(buf[k]-128));const l=$('#lvl');if(l)l.style.width=Math.min(100,m*1.6)+'%'},90)}catch(e){}
@@ -166,14 +178,24 @@ const mic=await micOpen();if(tok!==ses.tok){if(mic)mic.stop();return}
 const tt2=$('#tt');if(tt2)tt2.textContent=mic?'در حال ضبط؛ حالا تو بگو':'حالا تو بگو (ضبط نمی‌شود)';const d=$('#rdot');if(d)d.hidden=!mic;const lw=$('#lvlw');if(lw)lw.hidden=!mic;
 const p=$('#tbar');if(p){p.style.transition='none';p.style.width='100%';void p.offsetWidth;p.style.transition='width '+ms+'ms linear';p.style.width='0%'}
 await new Promise(r=>{const t=setTimeout(r,ms);ses.sk=()=>{clearTimeout(t);r()}});ses.sk=null;
-if(mic){const bl=await mic.stop();if(bl){ses.rc[i]=URL.createObjectURL(bl);const m=$('#m'+i);if(m)m.hidden=false}}
+if(mic){const bl=await mic.stop();if(bl){ses.rc[i]=URL.createObjectURL(bl);ses.rb[i]=bl;const m=$('#m'+i);if(m)m.hidden=false}}
 if(id===ses.tid)turnOff()}
-async function cmp(i){stopAll();const tok=++ses.tok,[sp,tx]=ses.t.lines[i];mark(i);await spk(tx,ses.rate,sp);if(tok!==ses.tok)return;await wait(350);if(ses.rc[i])await playA(ses.rc[i],1)}
+async function mine(i){stopAll();const tok=++ses.tok;mark(i);if(ses.rc[i])await playA(ses.rc[i],1)}
+function togglePlay(){if(navigator.vibrate)navigator.vibrate(15);if(ses.playing)stopAll();else play()}
+function syncPP(){const b=$('#pp');if(b&&ses){b.textContent=ses.playing?'توقف':'پخش';b.classList.toggle('on',!!ses.playing)}}
+const b64=bl=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(bl)});
+async function fbAll(){const o=$('#fbr');if(!o||!ses)return;const ks=Object.keys(ses.rb).map(Number).sort((a,b)=>a-b);
+if(!ks.length){o.textContent='هنوز صدایی ضبط نشده است. اول «گوش و تکرار» را اجرا کن.';return}
+if(!S.url){o.textContent='برای خطایابی، آدرس بک‌اند را در «بیشتر» وارد کن.';return}
+o.textContent='در حال گوش‌دادن به صدای تو (چند ثانیه)…';
+try{const items=[];for(const i of ks)items.push({n:i+1,text:ses.t.lines[i][1],audio:await b64(await toWav(ses.rb[i]))});
+const f=(await api({a:'pron2',items},120000)).fb;f.items.forEach(it=>(it.words||[]).forEach(x=>S.pw.push({w:x.w,d:day()})));S.pw=S.pw.slice(-40);markDay(0);save();push();
+o.innerHTML='<div class=card dir=auto>'+fx(f.summary)+'</div>'+f.items.map(it=>{const t=(ses.t.lines[it.n-1]||[])[1]||'';return '<div class=fb><span class=enl>'+(it.ok?'✅ ':'⚠️ ')+esc(t)+'</span>'+(it.words||[]).map(x=>'<div class=enl><b>'+esc(x.w)+'</b></div><div dir=auto>'+fx(x.tip)+'</div>').join('')+'</div>'}).join('')}catch(e){o.innerHTML='<span class=err>'+fx(e.message)+'</span>'}}
 function turnOff(){const b=$('#turn');if(b)b.hidden=true}
-function start(id){gBad=false;stm=S.url?'':'برای صدای طبیعی Gemini، آدرس Apps Script را در بخش «بیشتر» وارد کن؛ فعلاً صدای مرورگر پخش می‌شود.';ses={tr:false,t:allT().find(t=>t.id==id),step:2,role:'',slow:false,am:newAm(),rate:S.rate,rep:1,loop:false,auto:true,tok:0,rc:{},tid:0,t0:Date.now()};sesUI();sync()}
+function start(id){gBad=false;gFail=0;stm=S.url?'':'برای صدای طبیعی Gemini، آدرس Apps Script را در بخش «بیشتر» وارد کن؛ فعلاً صدای مرورگر پخش می‌شود.';ses={tr:false,t:allT().find(t=>t.id==id),step:2,role:'',slow:false,am:newAm(),rate:S.rate,rep:1,loop:false,auto:true,tok:0,rc:{},rb:{},tid:0,t0:Date.now()};sesUI();sync()}
 function sesUI(){const s=ses,two=typeof s.t.lines[0][0]=='string';$('#ses').hidden=false;$('#ses').innerHTML=`<div><button class=bk onclick="goBack()">${svg('<path d="M9 6l6 6-6 6"/>',20)}<span>بازگشت</span></button> <b>${tfo(s.t)}</b><div class=en2>${esc(s.t.title)}</div>
 <div class=chips>${NAMES.map((n,i)=>`<button class="${s.step==i+1?'on':''}" onclick="stopAll();ses.step=${i+1};sesUI()">${fa(i+1)}. ${n}</button>`).join('')}</div>
-<div class=card><button class=pri onclick="play()">پخش</button><button onclick="stopAll()">توقف</button>${s.step==2&&!s.auto?'<button onclick="ses.nx&&ses.nx()">خط بعدی</button>':''}<br>
+<div class=card><button id=pp class="pri${s.playing?' on':''}" onclick="togglePlay()">${s.playing?'توقف':'پخش'}</button>${s.step==2&&!s.auto?'<button onclick="ses.nx&&ses.nx()">خط بعدی</button>':''}<br>
 سرعت <input type=range min=.6 max=1.2 step=.1 value=${s.rate} onchange="ses.rate=+this.value"><br>
 <label>تکرار هر خط <select onchange="ses.rep=+this.value">${[1,2,3].map(n=>`<option ${s.rep==n?'selected':''}>${n}</option>`).join('')}</select></label>
 <label><input type=checkbox ${s.tr?'checked':''} onchange="ses.tr=this.checked;document.querySelectorAll('.tr').forEach(e=>e.hidden=!ses.tr)"> ترجمهٔ همه</label>
@@ -182,9 +204,9 @@ function sesUI(){const s=ses,two=typeof s.t.lines[0][0]=='string';$('#ses').hidd
 <label><input type=checkbox ${s.loop?'checked':''} onchange="ses.loop=this.checked"> تکرار کل متن</label>
 <label><input type=checkbox ${s.auto?'checked':''} onchange="ses.auto=this.checked;sesUI()"> خط بعدی خودکار</label>
 ${two&&s.step==3?`<br>نقش من: <select onchange="ses.role=this.value"><option value="">هیچ‌کدام</option><option ${s.role=='A'?'selected':''}>A</option><option ${s.role=='B'?'selected':''}>B</option></select> <small>خط‌های نقش تو پخش نمی‌شود؛ خودت بگو.</small>`:''}</div>
-<p id=st class=note ${stm?'':'hidden'}>${esc(stm)}</p>${s.step==1?'<p class=note>متن مخفی است. فقط گوش بده و ببین چه‌قدر می‌فهمی.</p>':'<div id=turn class=turn hidden><span id=rdot class=rdot hidden></span>'+svg(IC.talk,20)+'<b id=tt>حالا تو بگو</b><button onclick="ses.sk&&ses.sk()">رد شو</button><div id=lvlw class=lvl hidden><i id=lvl></i></div><div class=bar><i id=tbar></i></div></div><small class=mut>روی جمله بزن: ترجمهٔ فارسی. روی دکمهٔ پخش کنار جمله بزن: فقط همان جمله.</small>'+s.t.lines.map((l,i)=>`<div onclick="trT(${i})"><p class=ln id=l${i}>${l[0]?`<b>${l[0]}:</b> `:''}${l[1]} <button class=lp onclick="event.stopPropagation();one(${i})">${svg('<path d="M7 4l13 8-13 8z" fill="currentColor"/>',12)}</button><button class=lp id=m${i} ${s.rc&&s.rc[i]?'':'hidden'} onclick="event.stopPropagation();cmp(${i})">مقایسه</button></p><div class=tr id=f${i} ${s.tr?'':'hidden'}>${esc(fa_(s.t,i)||'ترجمه برای این متن ذخیره نشده.')}</div></div>`).join('')}
+<p id=st class=note ${stm?'':'hidden'}>${esc(stm)}</p>${s.step==1?'<p class=note>متن مخفی است. فقط گوش بده و ببین چه‌قدر می‌فهمی.</p>':'<div id=turn class=turn hidden><span id=rdot class=rdot hidden></span>'+svg(IC.talk,20)+'<b id=tt>حالا تو بگو</b><button onclick="ses.sk&&ses.sk()">رد شو</button><div id=lvlw class=lvl hidden><i id=lvl></i></div><div class=bar><i id=tbar></i></div></div><small class=mut>روی جمله بزن: ترجمهٔ فارسی. روی دکمهٔ پخش کنار جمله بزن: فقط همان جمله.</small>'+s.t.lines.map((l,i)=>`<div onclick="trT(${i})"><p class=ln id=l${i}>${l[0]?`<b>${l[0]}:</b> `:''}${l[1]} <button class=lp onclick="event.stopPropagation();one(${i})">${svg('<path d="M7 4l13 8-13 8z" fill="currentColor"/>',12)}</button><button class=lp id=m${i} ${s.rc&&s.rc[i]?'':'hidden'} onclick="event.stopPropagation();mine(${i})">${svg(IC.talk,12)} صدای من</button></p><div class=tr id=f${i} ${s.tr?'':'hidden'}>${esc(fa_(s.t,i)||'ترجمه برای این متن ذخیره نشده.')}</div></div>`).join('')}
 ${s.step==4?`<div class=card><p>جمله‌ها را بخوان و ضبط کن، بعد صدای خودت را با نسخهٔ اصلی مقایسه کن. به ریتم، تأکید کلمه‌ها و اتصال کلمه‌ها گوش بده.</p><button id=rs class=pri onclick="recT()">شروع ضبط</button><button onclick="play()">پخش اصلی</button><button id=pb hidden onclick="pron()">بازخورد تلفظ با Gemini</button><br><div id=pr></div><audio id=mine controls hidden style=width:100%></audio></div>`:''}
-<button onclick="sendBank(ses.t)">ارسال به کانال تلگرام</button><p id=bs class=mut></p><button class="big pri" onclick="finish()">پایان جلسه و ثبت تمرین</button></div>`}
+<button onclick="fbAll()">خطایابی تلفظ (صدای ضبط‌شده)</button><div id=fbr></div><button onclick="sendBank(ses.t)">ارسال به کانال تلگرام</button><p id=bs class=mut></p><button class="big pri" onclick="finish()">پایان جلسه و ثبت تمرین</button></div>`}
 let rec,ch=[];
 async function recT(){if(rec&&rec.state=='recording'){rec.stop();return}try{const st=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(st);ch=[];rec.ondataavailable=e=>ch.push(e.data);rec.onstop=()=>{st.getTracks().forEach(t=>t.stop());const a=$('#mine');a.src=URL.createObjectURL(new Blob(ch,{type:rec.mimeType}));a.hidden=false;$('#pb').hidden=false;$('#rs').textContent='ضبط دوباره'};rec.start();$('#rs').textContent='توقف ضبط'}catch(e){alert('اجازهٔ میکروفون داده نشد یا میکروفون در دسترس نیست.')}}
 async function toWav(blob){const ac=new (window.AudioContext||window.webkitAudioContext)(),buf=await ac.decodeAudioData(await blob.arrayBuffer()),n=Math.ceil(buf.duration*16000),oc=new OfflineAudioContext(1,n,16000),sr=oc.createBufferSource();sr.buffer=buf;sr.connect(oc.destination);sr.start();const d=(await oc.startRendering()).getChannelData(0),b=new DataView(new ArrayBuffer(44+n*2)),w=(o,t)=>[...t].forEach((c,i)=>b.setUint8(o+i,c.charCodeAt(0)));w(0,'RIFF');b.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');b.setUint32(16,16,true);b.setUint16(20,1,true);b.setUint16(22,1,true);b.setUint32(24,16000,true);b.setUint32(28,32000,true);b.setUint16(32,2,true);b.setUint16(34,16,true);w(36,'data');b.setUint32(40,n*2,true);for(let i=0;i<n;i++)b.setInt16(44+i*2,Math.max(-1,Math.min(1,d[i]))*32767,true);return new Blob([b.buffer],{type:'audio/wav'})}
