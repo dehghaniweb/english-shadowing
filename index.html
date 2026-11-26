@@ -56,9 +56,11 @@ const idb=new Promise(r=>{try{const q=indexedDB.open('sh',1);q.onupgradeneeded=(
 const idbG=async k=>{const d=await idb;return d?new Promise(r=>{const q=d.transaction('a').objectStore('a').get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r()}):null};
 const idbS=async(k,v)=>{const d=await idb;if(d)try{d.transaction('a','readwrite').objectStore('a').put(v,k)}catch(e){}};
 const pm=new Map();
-function gAud(tx,vo,ac){const k=vo+'|'+(ac||'')+'|'+tx;if(!pm.has(k))pm.set(k,(async()=>{let b=await idbG(k);if(!b){b=await ttsRetry(tx,vo,ac);idbS(k,b)}const u=atob(b),a=new Uint8Array(u.length);for(let i=0;i<u.length;i++)a[i]=u.charCodeAt(i);return URL.createObjectURL(new Blob([a],{type:'audio/wav'}))})().catch(e=>{pm.delete(k);throw e}));return pm.get(k)}
+function fixWav(u8){if(u8.length<44||u8[0]!=82||u8[1]!=73||u8[2]!=70||u8[3]!=70)return u8;const v=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);let p=12,off=-1;while(p+8<=u8.length){const id=String.fromCharCode(u8[p],u8[p+1],u8[p+2],u8[p+3]),sz=v.getUint32(p+4,true);if(id=='data'){off=p+8;break}p+=8+sz+(sz%2)}if(off<0)return u8;const o=new Uint8Array(u8),d=new DataView(o.buffer);d.setUint32(4,o.length-8,true);d.setUint32(off-4,o.length-off,true);return o}
+function fixWavB64(b){const u=atob(b),a=new Uint8Array(u.length);for(let i=0;i<u.length;i++)a[i]=u.charCodeAt(i);const f=fixWav(a);if(f===a)return b;let t='';for(let i=0;i<f.length;i+=8192)t+=String.fromCharCode.apply(null,f.subarray(i,i+8192));return btoa(t)}
+function gAud(tx,vo,ac){const k='w2|'+vo+'|'+(ac||'')+'|'+tx;if(!pm.has(k))pm.set(k,(async()=>{let b=await idbG(k);if(!b){b=await ttsRetry(tx,vo,ac);idbS(k,b)}const u=atob(b),a=new Uint8Array(u.length);for(let i=0;i<u.length;i++)a[i]=u.charCodeAt(i);return URL.createObjectURL(new Blob([fixWav(a)],{type:'audio/wav'}))})().catch(e=>{pm.delete(k);throw e}));return pm.get(k)}
 let cur=null,gBad=false,gFail=0;const wait=ms=>new Promise(r=>setTimeout(r,ms));
-function playA(u,rate){return new Promise(res=>{const a=new Audio(u);cur=a;a.playbackRate=rate;a.onended=a.onerror=a.onpause=()=>res();a.play().catch(res)})}
+function playA(u,rate){return new Promise(res=>{const a=new Audio(u);cur=a;a.playbackRate=rate;a.onended=a.onerror=()=>res();a.onpause=()=>{if(a._stop||a.ended||!(a.duration>0)||a.currentTime>=a.duration-.25)return res();a.play().catch(res)};a.play().catch(res)})}
 function bspk(tx,rate,lang){return new Promise(res=>{const t0=Date.now(),u=new SpeechSynthesisUtterance(tx);u.lang=lang||'en-US';u.rate=rate;const vs=speechSynthesis.getVoices(),v=vs.find(v=>v.name==S.voice)||vs.find(v=>lang&&v.lang.replace('_','-')==lang);if(v)u.voice=v;const f=setTimeout(res,tx.length*130/rate+4000);u.onend=u.onerror=()=>{clearTimeout(f);if(tx.length>15&&Date.now()-t0<400&&!stm.includes('⚠'))setSt((stm?stm+' ':'')+'⚠ صدای مرورگر خروجی نداد. حجم رسانهٔ گوشی را چک کن. اگر درست بود، موتور TTS گوشی انگلیسی ندارد؛ پس باید اتصال Gemini درست شود (بیشتر ← تست صدا).');res()};speechSynthesis.speak(u)})}
 async function spk(tx,rate,sp){const ac=accOf(sp);if(S.url&&S.g&&!gBad){try{const r=await playA(await gAud(tx,sp=='B'?'Puck':'Kore',ac),rate);gFail=0;return r}catch(e){if(++gFail>=3)gBad=true;setSt('صدای Gemini برای یک جمله ساخته نشد: '+e.message+' — آن جمله با صدای مرورگر خوانده می‌شود.')}}return bspk(tx,rate,ACCX[ac][1])}
 // ---- coach + sync ----
@@ -143,7 +145,7 @@ function back(){if(!$('#ses').hidden){closeS();return}if(tab=='talk'){if(tk.fb){
 const goBack=()=>{if(depth>0)history.back();else back()};
 addEventListener('popstate',()=>{if(quiet){quiet--;return}depth=Math.max(0,depth-1);back();sync()});
 async function ttsRetry(tx,vo,ac){let er;for(let n=0;n<3;n++){try{return (await api({a:'tts',text:tx,voice:vo,accent:ac?ACCX[ac][0]:''})).audio}catch(e){er=e;await wait(1500*(n+1))}}throw er}
-async function gB64(tx,vo,ac){const k=vo+'|'+(ac||'')+'|'+tx;let b=await idbG(k);if(!b){b=await ttsRetry(tx,vo,ac);idbS(k,b)}return b}
+async function gB64(tx,vo,ac){const k='w2|'+vo+'|'+(ac||'')+'|'+tx;let b=await idbG(k);if(!b){b=await ttsRetry(tx,vo,ac);idbS(k,b)}return fixWavB64(b)}
 async function sendBank(t,auto){const msg=m=>{const o=$('#bs')||$('#ge');if(o)o.innerHTML=m;else if(!auto)setSt(m)};
 try{const am=S.acc=='mix'?((ses&&ses.t==t&&ses.am)||newAm()):null,ak=k=>(S.acc!='mix'&&ACCX[S.acc])?S.acc:((am&&am[k])||'us'),pk=k=>ACCX[ak(k)][0];
 const L=[],miss=[];
@@ -158,7 +160,7 @@ msg('✅ به کانال رفت:<code class=enl>'+esc(r.name)+'</code>')}catch(e
 let ses;const NAMES=['گوش دادن','گوش و تکرار','هم‌زمان','ضبط و بازخورد'];
 function sil(){const a=$('#sil');if(!a.src){const n=8000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,s)=>[...s].forEach((c,i)=>b[o+i]=c.charCodeAt(0));w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);for(let i=44;i<b.length;i+=400)b[i]=129;a.src=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));a.loop=true;a.volume=.05}return a.play().catch(()=>{})}
 function ms(){if(!('mediaSession' in navigator))return;try{navigator.mediaSession.metadata=new MediaMetadata({title:ses.t.title,artist:'Shadowing'});['pause','stop'].forEach(a=>navigator.mediaSession.setActionHandler(a,stopAll));navigator.mediaSession.setActionHandler('play',play)}catch(e){}}
-function stopAll(){turnOff();if(ses){ses.tok++;ses.playing=false;if(ses.sk)ses.sk()}syncPP();speechSynthesis.cancel();if(cur)cur.pause();$('#sil').pause();if(ses&&ses.nx)ses.nx()}
+function stopAll(){turnOff();if(ses){ses.tok++;ses.playing=false;if(ses.sk)ses.sk()}syncPP();speechSynthesis.cancel();if(cur){cur._stop=1;cur.pause()}$('#sil').pause();if(ses&&ses.nx)ses.nx()}
 const mark=i=>{document.querySelectorAll('.ln').forEach((e,j)=>e.classList.toggle('cur',i==j));const e=$('#l'+i);if(e)e.scrollIntoView({block:'center',behavior:'smooth'})};
 async function play(){stopAll();const tok=++ses.tok,L=ses.t.lines;ses.playing=true;syncPP();await sil();ms();
 if(S.url&&S.g&&!gBad)(async()=>{for(const[sp,tx]of L){try{await gAud(tx,sp=='B'?'Puck':'Kore',accOf(sp))}catch(e){}}})();
